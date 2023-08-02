@@ -1,66 +1,68 @@
+<div align="center">
+ <img height="150" src="/media/logo.png"></h2>
+</div>
+<br/>
+
+**REACT-NATIVE-COMPRESSOR** is a react-native package, which help us to Compress `Image`, `Video`, and `Audio` same like **Whatsapp** without knowing compression `algorithm`
+
+<div align="center">
+<img height="60" src="/media/whatsapp_logo.png">
+<h2 align="center">🗜️Compress Image, Video, and Audio same like Whatsapp</h2>
+</div>
+
+#### Why should we use react-native-compress over [FFmpeg](https://www.ffmpeg.org/)?
+
+We should use **react-native-compressor** instead of **FFmpeg** because **react-native-compressor** gives you same compression of **Whatsapp** (`Image, Video, and Audio`) without knowing the algorithm of compression + it is lightweight only increase **50 KB Size** Size in APK while **FFmpeg** increase ~> **9 MB Size** in **APK**, and we have to give manual image/video/Audo size and quality as well as
+
+**If you find this package useful hit the star** 🌟
+
 ### Would you like to support me?
 
 <div align="center">
-<a href="https://github.com/nomi9995?tab=followers">
-    <img src="https://img.shields.io/github/followers/nomi9995?label=Follow%20%40nomi9995&style=social" />
+<a href="https://github.com/numandev1?tab=followers">
+    <img src="https://img.shields.io/github/followers/numandev1?label=Follow%20%40numandev1&style=social" height="36" />
 </a>
+<a href="https://twitter.com/numandev1/">
+    <img src="https://img.shields.io/twitter/follow/numandev1?label=Follow%20%40numandev1&style=social" height="36" />
+</a>
+<a href="https://www.youtube.com/channel/UCYCUspfN7ZevgCj3W5GlFAw"><img src="https://img.shields.io/youtube/channel/subscribers/UCYCUspfN7ZevgCj3W5GlFAw?style=social" height="36" /><a/>
 </br>
 <a href="https://www.buymeacoffee.com/numan.dev" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: auto !important;width: auto !important;" ></a>
 </div>
 
 ---
 
-
-
-# react-native-compressor
-
-<!-- Title -->
-<p align="center">
-<img src="/media/icon.png" alt="alt text" width="150"/>
-</p>
-
-<!-- Header -->
-
-<p align="center">
-  <b>Compress videos, images and audio before upload</b>
-  <br />
-</p>
-
-<p align="center">
-  <img height="450" src="/media/cover.png">
-</p>
-
-**react-native-compressor** package is a set of functions that allow you compress `Image`,`Audio` and `Video`
-
-**If you find this package useful hit the star** 🌟
+#### See the [Benchmarks](#benchmark)
 
 # Table of Contents
+
 <details>
 <summary>Open Table of Contents</summary>
 
-  * [Installation](#installation)
-    + [For React Native](#react-native)
-      - [For React Native<0.65](#for-react-native065)
-      - [For React Native 0.65 or greater](#for-react-native-065-or-greater)
-    + [Managed Expo](#managed-expo)
-  * [Usage](#usage)
-    + [Image](#image)
-        * [Automatic Image Compression Like Whatsapp](#automatic-image-compression-like-whatsapp)
-        * [Manual Image Compression](#manual-image-compression)
-        * [ImageCompressor API Docs](#imagecompressor)
-    + [Video](#video)
-        * [Automatic Video Compression Like Whatsapp](#automatic-video-compression-like-whatsapp)
-        * [Manual Video Compression](#manual-video-compression)
-        * [Cancel Video Compression](#cancel-video-compression)
-        * [Video Api Docs](#video-1)
-    + [Audio](#audio)
-    + [Background Upload](#background-upload)
-- [Other Utilities](#api)
-  * [Background Upload](#background-upload-1)
-  * [Get Metadata Of Video](#get-metadata-of-video)
-  * [Get Real Path](#get-real-path)
-  * [Get Temp file Path](#get-temp-file-path)
-</details>
+- [Installation](#installation)
+  - [For React Native](#react-native)
+    - [For React Native<0.65](#for-react-native065)
+    - [For React Native 0.65 or greater](#for-react-native-065-or-greater)
+  - [Managed Expo](#managed-expo)
+- [Usage](#usage)
+  - [Image](#image)
+    - [Automatic Image Compression Like Whatsapp](#automatic-image-compression-like-whatsapp)
+    - [Manual Image Compression](#manual-image-compression)
+    - [ImageCompressor API Docs](#imagecompressor)
+  - [Video](#video)
+    - [Automatic Video Compression Like Whatsapp](#automatic-video-compression-like-whatsapp)
+    - [Manual Video Compression](#manual-video-compression)
+    - [Cancel Video Compression](#cancel-video-compression)
+    - [Video Api Docs](#video-1)
+  - [Audio](#audio)
+  - [Background Upload](#background-upload)
+
+* [Other Utilities](#api)
+  - [Background Upload](#background-upload-1)
+  - [Get Metadata Of Video](#get-metadata-of-video)
+  - [Get Real Path](#get-real-path)
+  - [Get Temp file Path](#get-temp-file-path)
+  </details>
 
 ## Installation
 
@@ -399,7 +401,7 @@ if you want to convert
 - `content://` to `file:///` for android
 - `ph://` to `file:///` for IOS
 
-the you can you `getRealPath` function like this
+then you can call `getRealPath` function like this
 
 ```js
 import { getRealPath } from 'react-native-compressor';
@@ -420,6 +422,16 @@ const randomFilePathForSaveFile = await generateFilePath('mp4'); //   file://fil
 ```
 
 - ##### `generateFilePath(fileextension: string)`
+
+## Benchmark
+
+[<img height="30" src="/media/whatsapp_logo.png"> Whatsapp:](https://apps.apple.com/us/app/whatsapp-messenger/id310633997) compresses Images,Videos and Audios in every effect way
+
+<p align="center">
+  <img height="450" src="/media/branchmark_for_images.png">
+   <br /> <br />
+  <img height="450" src="/media/benchmark_for_videos.png">
+</p>
 
 ## Contributing
 
