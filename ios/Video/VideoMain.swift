@@ -146,8 +146,7 @@ class VideoCompressor {
       }
 }
 
-
-    func  makeVideoBitrate(originalHeight:Int,originalWidth:Int,originalBitrate:Int,height:Int,width:Int)->Int {
+    func makeVideoBitrate(originalHeight:Int,originalWidth:Int,originalBitrate:Int,height:Int,width:Int)->Int {
         let compressFactor:Float = 0.8
         let  minCompressFactor:Float = 0.8
         let maxBitrate:Int = 1669000
@@ -162,6 +161,7 @@ class VideoCompressor {
         }
         return max(remeasuredBitrate, minBitrate);
       }
+
     func getVideoBitrateWithFactor(f:Float)->Float {
         return f * 2000 * 1000 * 1.13;
       }
