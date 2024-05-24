@@ -1,14 +1,41 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Button, Image, Alert, Platform } from 'react-native';
-import { Video, getRealPath } from 'react-native-compressor';
-import * as ImagePicker from 'react-native-image-picker';
-import { createThumbnail } from 'react-native-create-thumbnail';
-import * as Progress from 'react-native-progress';
-import CameraRoll from '@react-native-community/cameraroll';
-const prettyBytes = require('pretty-bytes');
-import { getFileInfo } from '../../Utils';
+import {
+  View,
+  Text,
+  Button,
+  Image,
+  Alert,
+  Platform,
+  BackHandler,
+} from 'react-native';
+import {
+  Video,
+  getRealPath,
+  backgroundUpload,
+  cancelUpload,
+  UploadType,
+  UploaderHttpMethod,
+  createVideoThumbnail,
+  clearCache,
+} from 'react-native-compressor';
 
+import * as ImagePicker from 'react-native-image-picker';
+import CameraRoll from '@react-native-camera-roll/camera-roll';
+import prettyBytes from 'pretty-bytes';
+import { getFileInfo } from '../../Utils';
+import ProgressBar from '../../Components/ProgressBar';
+import type { ProgressBarRafType } from '../../Components/ProgressBar';
+// const DOMAIN = 'http://localhost:8080';
+const DOMAIN = 'http://192.168.1.5:8080';
+const uploadPutRequest = `${DOMAIN}/upload/putRequestFile.mov`;
+const uploadPutRequest1 = `${DOMAIN}/upload/putRequestFile1.mov`;
+const uploadPostRequest = `${DOMAIN}/upload`;
+// const uploadPostRequestFail = `${DOMAIN}/uploadFail`;
+let counter1 = 0;
 export default function App() {
+  const cancellationIdForUploadRef = useRef<string>('');
+  const progressRef = useRef<ProgressBarRafType>();
+  const abortSignalRef = useRef(new AbortController());
   const cancellationIdRef = useRef<string>('');
   const [sourceVideo, setSourceVideo] = useState<string>();
   const [sourceSize, setSourceSize] = useState<number>();
@@ -18,19 +45,13 @@ export default function App() {
   const [compressedVideoThumbnail, setcompressedVideoThumbnail] =
     useState<string>();
 
-  const [compressingProgress, setCompressingProgress] = useState<number>(0);
-  const [sourceUploadProgress, setSourceUploadProgress] = useState<number>(0);
-  const [compressedUploadProgress, setCompressedUploadProgress] =
-    useState<number>(0);
-
   const [doingSomething, setDoingSomething] = useState<boolean>(false);
   const [backgroundMode, setBackgroundMode] = useState<boolean>(false);
 
   useEffect(() => {
+    counter1 = -1;
     if (!sourceVideo) return;
-    createThumbnail({
-      url: sourceVideo,
-    })
+    createVideoThumbnail(sourceVideo, {})
       .then((response) => setSourceVideoThumbnail(response.path))
       .catch((error) => console.log({ error }));
     (async () => {
@@ -42,9 +63,7 @@ export default function App() {
   useEffect(() => {
     if (!compressedVideo) return;
     setcompressedVideoThumbnail(sourceVideoThumbnail);
-    createThumbnail({
-      url: compressedVideo,
-    })
+    createVideoThumbnail(compressedVideo)
       .then((response) => setcompressedVideoThumbnail(response.path))
       .catch((error) => {
         console.log({ errorThumnail: error });
@@ -62,7 +81,7 @@ export default function App() {
     if (doingSomething) {
       let counter = 1;
       const timer = setInterval(() => {
-        console.log(counter, ' Doing Simething', new Date());
+        console.log(counter, ' Doing Something', new Date());
         counter += 1;
       }, 500);
       return () => {
@@ -71,6 +90,16 @@ export default function App() {
     }
     return undefined;
   }, [doingSomething]);
+
+  useEffect(() => {
+    const handler = () => {
+      abortSignalRef.current?.abort();
+      return true;
+    };
+    BackHandler.addEventListener('hardwareBackPress', handler);
+
+    return () => BackHandler.removeEventListener('hardwareBackPress', handler);
+  }, []);
 
   const selectVideo = async () => {
     try {
@@ -106,26 +135,66 @@ export default function App() {
       const dstUrl = await Video.compress(
         sourceVideo,
         {
-          compressionMethod: 'auto',
-          minimumFileSizeForCompress: 0,
+          progressDivider: 10,
           getCancellationId: (cancellationId) =>
             (cancellationIdRef.current = cancellationId),
         },
         (progress) => {
+          console.log('Compression Progress: ', progress);
+          progressRef.current?.setProgress(progress);
           if (backgroundMode) {
-            console.log('Compression Progress: ', progress);
           } else {
-            setCompressingProgress(progress);
           }
         }
       );
       console.log({ dstUrl }, 'compression result');
       setCompressedVideo(dstUrl);
-      setCompressingProgress(0);
+      progressRef.current?.setProgress(0);
     } catch (error) {
       console.log({ error }, 'compression error');
       setCompressedVideo(sourceVideo);
-      setCompressingProgress(0);
+      progressRef.current?.setProgress(0);
+    }
+  };
+
+  const onPressRemoteVideo = async () => {
+    // const url =
+    // 'https://filesamples.com/samples/video/mp4/sample_960x400_ocean_with_audio.mp4';
+
+    const url =
+      'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WhatCarCanYouGetForAGrand.mp4';
+
+    setSourceVideoThumbnail(
+      'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQvFTncZP4wzhJ9qH0dR1ZCCde_riH3aOoaVQZnOeVDnA&s'
+    );
+    try {
+      const dstUrl = await Video.compress(
+        url,
+        {
+          progressDivider: 10,
+          minimumFileSizeForCompress: 0,
+          getCancellationId: (cancellationId) =>
+            (cancellationIdRef.current = cancellationId),
+          downloadProgress: (progress) => {
+            console.log('downloadProgress: ', progress);
+            progressRef.current?.setProgress(progress);
+          },
+        },
+        (progress) => {
+          console.log('Compression Progress: ', progress);
+          progressRef.current?.setProgress(progress);
+          if (backgroundMode) {
+          } else {
+          }
+        }
+      );
+      console.log({ dstUrl }, 'compression result');
+      setCompressedVideo(dstUrl);
+      progressRef.current?.setProgress(0);
+    } catch (error) {
+      console.log({ error }, 'compression error');
+      setCompressedVideo(sourceVideo);
+      progressRef.current?.setProgress(0);
     }
   };
 
@@ -133,45 +202,80 @@ export default function App() {
     Video.cancelCompression(cancellationIdRef.current);
   };
 
-  const uploadSource = async () => {
-    if (!sourceVideo) return;
+  const uploadByPostRequest = async (
+    type: 'actual' | 'compressed' = 'actual'
+  ) => {
+    console.log('uploadByPostRequest');
+    const localFileUrl = type === 'actual' ? sourceVideo : compressedVideo;
+    if (!localFileUrl) return;
     try {
-      const result = await Video.backgroundUpload(
-        'http://w.hbu50.com:8080/hello.mp4',
-        sourceVideo,
-        { httpMethod: 'PUT' },
+      console.log('upload start', localFileUrl);
+      const headers = {
+        Authorization: `Bearer ABCABC`,
+      };
+      const result = await backgroundUpload(
+        uploadPostRequest,
+        localFileUrl,
+        {
+          uploadType: UploadType.MULTIPART,
+          httpMethod: UploaderHttpMethod.POST,
+          // fieldName: 'file',
+          // mimeType: 'video/quicktime',
+          parameters: { message: 'this is test message' },
+          headers,
+        },
         (written, total) => {
-          setSourceUploadProgress(written / total);
+          progressRef.current?.setProgress(written / total);
           console.log(written, total);
-        }
+        },
+        abortSignalRef.current.signal
       );
-      console.log(result);
+
+      console.log(result, 'result');
     } catch (error) {
-      console.log(error);
+      console.log('error=>', error);
     } finally {
-      setSourceUploadProgress(0);
+      progressRef.current?.setProgress(0);
     }
   };
 
-  const uploadCompressed = async () => {
-    if (!compressedVideo) return;
+  const uploadByPutRequest = async (type: 'actual' | 'compressed') => {
+    const localFileUrl = type === 'actual' ? sourceVideo : compressedVideo;
+    if (!localFileUrl) return;
     try {
-      setCompressedUploadProgress(1);
-      const result = await Video.backgroundUpload(
-        'http://w.hbu50.com:8080/hello.mp4',
-        compressedVideo,
-        { httpMethod: 'PUT' },
+      console.log('upload start', sourceVideo);
+      const headers = {
+        Authorization: `Bearer ABCABC`,
+      };
+      counter1++;
+      const result = await backgroundUpload(
+        counter1 % 2 == 0 ? uploadPutRequest : uploadPutRequest1,
+        localFileUrl,
+        {
+          uploadType: UploadType.BINARY_CONTENT,
+          httpMethod: UploaderHttpMethod.PUT,
+          headers,
+          getCancellationId: (cancellationId) =>
+            (cancellationIdForUploadRef.current = cancellationId),
+        },
         (written, total) => {
-          setCompressedUploadProgress(written / total);
+          progressRef.current?.setProgress(written / total);
           console.log(written, total);
-        }
+        },
+        abortSignalRef.current.signal
       );
-      console.log(result);
+
+      console.log(result, 'result');
     } catch (error) {
-      console.log(error);
+      console.log('error=>', error);
     } finally {
-      setCompressedUploadProgress(0);
+      progressRef.current?.setProgress(0);
     }
+  };
+
+  const cancelUploader = () => {
+    console.log('cancelUploader', cancellationIdForUploadRef.current);
+    cancelUpload(cancellationIdForUploadRef.current);
   };
 
   const onCompressVideofromCameraoll = async () => {
@@ -181,14 +285,23 @@ export default function App() {
     });
     const phUrl = photos.page_info.end_cursor;
     setSourceVideo(phUrl);
-    console.log('nomi', phUrl);
     if (phUrl?.includes('ph://')) {
       const realPath = await getRealPath(phUrl, 'video');
       console.log('old path==>', phUrl, 'realPath ==>', realPath);
     }
   };
+
+  const clearThumbnailCache = () => {
+    clearCache()
+      .then(() => {
+        console.log('done');
+      })
+      .catch((error: any) => console.log(error));
+  };
+
   return (
     <View style={{ flex: 1 }}>
+      <ProgressBar ref={progressRef} />
       <View
         style={{
           flex: 1,
@@ -206,10 +319,16 @@ export default function App() {
                 resizeMode="contain"
               />
               {sourceSize && <Text>Size: {sourceSize}</Text>}
-              <Button title="Upload" onPress={uploadSource} />
-              {sourceUploadProgress > 0 && (
-                <Progress.Bar progress={sourceUploadProgress} width={200} />
-              )}
+              <Button
+                title="Upload(Post)"
+                onPress={() => uploadByPostRequest('actual')}
+              />
+              <Button
+                title="Upload(Put)"
+                onPress={() => uploadByPutRequest('actual')}
+              />
+
+              <Button title="Cancel Upload" onPress={() => cancelUploader()} />
             </View>
           )}
         </View>
@@ -223,22 +342,18 @@ export default function App() {
                 resizeMode="contain"
               />
               {compressedSize && <Text>Size: {compressedSize}</Text>}
-              <Button title="Upload" onPress={uploadCompressed} />
-              {compressedUploadProgress > 0 && (
-                <View>
-                  <Progress.Bar
-                    progress={compressedUploadProgress}
-                    width={200}
-                  />
-                </View>
-              )}
+              <Button
+                title="Upload(Post)"
+                onPress={() => uploadByPostRequest('compressed')}
+              />
+              <Button
+                title="Upload(Put)"
+                onPress={() => uploadByPutRequest('compressed')}
+              />
             </View>
           )}
         </View>
       </View>
-      {compressingProgress > 0 && (
-        <Progress.Bar progress={compressingProgress} width={400} />
-      )}
       <View
         style={{
           height: 50,
@@ -256,7 +371,12 @@ export default function App() {
         />
       </View>
       <View style={{ height: 200 }}>
+        <Button
+          title="Remote Video (http://) and Compress"
+          onPress={onPressRemoteVideo}
+        />
         <Button title="Cancel Compression" onPress={cancelCompression} />
+        <Button title="clear thumbnail cache" onPress={clearThumbnailCache} />
         <Text>Put app in background and check console output</Text>
         <View
           style={{
