@@ -1,20 +1,8 @@
-import {
-  NativeModules,
-  NativeEventEmitter,
-  Platform,
-  NativeEventSubscription,
-} from 'react-native';
+import { NativeEventEmitter } from 'react-native';
+import type { NativeEventSubscription } from 'react-native';
+import { Compressor } from '../Main';
 import { uuidv4 } from '../utils';
 
-export declare enum FileSystemUploadType {
-  BINARY_CONTENT = 0,
-  MULTIPART = 1,
-}
-
-export declare type FileSystemAcceptedUploadHttpMethod =
-  | 'POST'
-  | 'PUT'
-  | 'PATCH';
 export type compressionMethod = 'auto' | 'manual';
 type videoCompresssionType = {
   bitrate?: number;
@@ -22,33 +10,11 @@ type videoCompresssionType = {
   compressionMethod?: compressionMethod;
   minimumFileSizeForCompress?: number;
   getCancellationId?: (cancellationId: string) => void;
-};
-
-export declare enum FileSystemSessionType {
-  BACKGROUND = 0,
-  FOREGROUND = 1,
-}
-
-export declare type HTTPResponse = {
-  status: number;
-  headers: Record<string, string>;
-  body: string;
-};
-
-export declare type FileSystemUploadOptions = (
-  | {
-      uploadType?: FileSystemUploadType.BINARY_CONTENT;
-    }
-  | {
-      uploadType: FileSystemUploadType.MULTIPART;
-      fieldName?: string;
-      mimeType?: string;
-      parameters?: Record<string, string>;
-    }
-) & {
-  headers?: Record<string, string>;
-  httpMethod?: FileSystemAcceptedUploadHttpMethod;
-  sessionType?: FileSystemSessionType;
+  downloadProgress?: (progress: number) => void;
+  /***
+   * Default:0, we uses it when we use downloadProgress/onProgress
+   */
+  progressDivider?: number;
 };
 
 export type VideoCompressorType = {
@@ -58,58 +24,13 @@ export type VideoCompressorType = {
     onProgress?: (progress: number) => void
   ): Promise<string>;
   cancelCompression(cancellationId: string): void;
-  backgroundUpload(
-    url: string,
-    fileUrl: string,
-    options: FileSystemUploadOptions,
-    onProgress?: (writtem: number, total: number) => void
-  ): Promise<any>;
   activateBackgroundTask(onExpired?: (data: any) => void): Promise<any>;
   deactivateBackgroundTask(): Promise<any>;
 };
 
-const VideoCompressEventEmitter = new NativeEventEmitter(
-  NativeModules.VideoCompressor
-);
+const VideoCompressEventEmitter = new NativeEventEmitter(Compressor);
 
-const NativeVideoCompressor = NativeModules.VideoCompressor;
-
-export const backgroundUpload = async (
-  url: string,
-  fileUrl: string,
-  options: FileSystemUploadOptions,
-  onProgress?: (writtem: number, total: number) => void
-): Promise<any> => {
-  const uuid = uuidv4();
-  let subscription: NativeEventSubscription;
-  try {
-    if (onProgress) {
-      subscription = VideoCompressEventEmitter.addListener(
-        'VideoCompressorProgress',
-        (event: any) => {
-          if (event.uuid === uuid) {
-            onProgress(event.data.written, event.data.total);
-          }
-        }
-      );
-    }
-    if (Platform.OS === 'android' && fileUrl.includes('file://')) {
-      fileUrl = fileUrl.replace('file://', '');
-    }
-    const result = await NativeVideoCompressor.upload(fileUrl, {
-      uuid,
-      method: options.httpMethod,
-      headers: options.headers,
-      url,
-    });
-    return result;
-  } finally {
-    // @ts-ignore
-    if (subscription) {
-      subscription.remove();
-    }
-  }
-};
+const NativeVideoCompressor = Compressor;
 
 export const cancelCompression = (cancellationId: string) => {
   return NativeVideoCompressor.cancelCompression(cancellationId);
@@ -123,6 +44,8 @@ const Video: VideoCompressorType = {
   ) => {
     const uuid = uuidv4();
     let subscription: NativeEventSubscription;
+    let subscription2: NativeEventSubscription;
+
     try {
       if (onProgress) {
         subscription = VideoCompressEventEmitter.addListener(
@@ -134,18 +57,35 @@ const Video: VideoCompressorType = {
           }
         );
       }
+
+      if (options?.downloadProgress) {
+        //@ts-ignore
+        subscription2 = VideoCompressEventEmitter.addListener(
+          'downloadProgress',
+          (event: any) => {
+            if (event.uuid === uuid) {
+              options.downloadProgress &&
+                options.downloadProgress(event.data.progress);
+            }
+          }
+        );
+      }
+
       const modifiedOptions: {
         uuid: string;
         bitrate?: number;
         compressionMethod?: compressionMethod;
         maxSize?: number;
         minimumFileSizeForCompress?: number;
+        progressDivider?: number;
       } = { uuid };
+      if (options?.progressDivider)
+        modifiedOptions.progressDivider = options?.progressDivider;
       if (options?.bitrate) modifiedOptions.bitrate = options?.bitrate;
       if (options?.compressionMethod) {
         modifiedOptions.compressionMethod = options?.compressionMethod;
       } else {
-        modifiedOptions.compressionMethod = 'manual';
+        modifiedOptions.compressionMethod = 'auto';
       }
       if (options?.maxSize) {
         modifiedOptions.maxSize = options?.maxSize;
@@ -159,6 +99,7 @@ const Video: VideoCompressorType = {
       if (options?.getCancellationId) {
         options?.getCancellationId(uuid);
       }
+
       const result = await NativeVideoCompressor.compress(
         fileUrl,
         modifiedOptions
@@ -169,9 +110,12 @@ const Video: VideoCompressorType = {
       if (subscription) {
         subscription.remove();
       }
+      //@ts-ignore
+      if (subscription2) {
+        subscription2.remove();
+      }
     }
   },
-  backgroundUpload,
   cancelCompression,
   activateBackgroundTask(onExpired?) {
     if (onExpired) {

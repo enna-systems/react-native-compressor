@@ -4,7 +4,7 @@ import Button from '../../Components/Button';
 import Row from '../../Components/Row';
 import { Audio } from 'react-native-compressor';
 import DocumentPicker from 'react-native-document-picker';
-const prettyBytes = require('pretty-bytes');
+import prettyBytes from 'pretty-bytes';
 import { getFileInfo } from '../../Utils';
 
 const Index = () => {
@@ -17,11 +17,18 @@ const Index = () => {
       const res: any = await DocumentPicker.pick({
         type: [DocumentPicker.types.audio],
       });
-      setOrignalSize(prettyBytes(res.size));
-      setFileName(res.name);
-      setMimeType(res.type);
-      Audio.compress(res.uri, { quality: 'high' })
+      setOrignalSize(prettyBytes(res[0]?.size));
+      setFileName(res[0].name);
+      setMimeType(res[0].type);
+      console.log('source file: ', res[0].uri);
+      Audio.compress(res[0].uri, {
+        quality: 'medium',
+        // bitrate: 64000,
+        // samplerate: 44100,
+        // channels: 1,
+      })
         .then(async (outputFilePath: string) => {
+          console.log(outputFilePath, 'outputFilePath compressed audio');
           const detail: any = await getFileInfo(outputFilePath);
           setCompressedSize(prettyBytes(parseInt(detail.size)));
         })

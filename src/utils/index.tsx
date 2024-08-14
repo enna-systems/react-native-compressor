@@ -1,34 +1,66 @@
 /* eslint-disable no-bitwise */
-import { NativeModules } from 'react-native';
-const { Compressor } = NativeModules;
-export const AUDIO_BITRATE = [256, 192, 160, 128, 96, 64, 32];
+import { Compressor } from '../Main';
+import { Platform } from 'react-native';
 type qualityType = 'low' | 'medium' | 'high';
 const INCORRECT_INPUT_PATH = 'Incorrect input path. Please provide a valid one';
-const INCORRECT_OUTPUT_PATH =
-  'Incorrect output path. Please provide a valid one';
-const ERROR_OCCUR_WHILE_GENERATING_OUTPUT_FILE =
-  'An error occur while generating output file';
+
 type audioCompresssionType = {
-  bitrate?: number;
-  quality: qualityType;
-  outputFilePath?: string | undefined | null;
+  // bitrate?: number;
+  quality?: qualityType;
+  bitrate?: number; // 64000-320000
+  samplerate?: number; // 44100 - 192000
+  channels?: number; // Typically 1 or 2
 };
 
 export type defaultResultType = {
-  outputFilePath: string | undefined | null;
   isCorrect: boolean;
   message: string;
 };
 
 export const DEFAULT_COMPRESS_AUDIO_OPTIONS: audioCompresssionType = {
-  bitrate: 96,
+  // bitrate: 96,
   quality: 'medium',
-  outputFilePath: '',
 };
 
 export type AudioType = {
   compress(value: string, options?: audioCompresssionType): Promise<string>;
 };
+
+type createVideoThumbnailType = (
+  fileUrl: string,
+  options?: {
+    headers?: { [key: string]: string };
+  }
+) => Promise<{
+  path: string;
+  size: number;
+  mime: string;
+  width: number;
+  height: number;
+}>;
+
+type clearCacheType = (cacheDir?: string) => Promise<string>;
+
+type getImageMetaDataType = (filePath: string) => Promise<{
+  ImageWidth: number;
+  ImageHeight: number;
+  Orientation: number;
+  size: number;
+  extension: string;
+  exif: { [key: string]: string };
+}>;
+
+type getVideoMetaDataType = (filePath: string) => Promise<{
+  extension: string;
+  size: number;
+  duration: number;
+  width: number;
+  height: number;
+}>;
+type getRealPathType = (
+  path: string,
+  type: 'video' | 'image'
+) => Promise<string>;
 
 export const generateFilePath: any = (extension: string) => {
   return new Promise((resolve, reject) => {
@@ -38,15 +70,49 @@ export const generateFilePath: any = (extension: string) => {
   });
 };
 
-export const getRealPath: any = (
-  path: string,
-  type: 'video' | 'imaage' = 'video'
-) => {
+export const getRealPath: getRealPathType = (path, type = 'video') => {
   return Compressor.getRealPath(path, type);
 };
 
-export const getVideoMetaData: any = (path: string) => {
+export const getVideoMetaData: getVideoMetaDataType = (path: string) => {
   return Compressor.getVideoMetaData(path);
+};
+
+const unifyMetaData = (exifResult: any) => {
+  const output: any = {};
+  const isIos = Platform.OS === 'ios';
+  output.ImageWidth = isIos
+    ? exifResult?.PixelWidth
+    : parseInt(exifResult.ImageWidth);
+
+  output.ImageHeight = isIos
+    ? exifResult?.PixelHeight
+    : parseInt(exifResult.ImageLength);
+
+  output.Orientation = isIos
+    ? exifResult.Orientation
+    : parseInt(exifResult.Orientation);
+
+  output.size = exifResult.size;
+  output.extension = exifResult.extension;
+  output.exif = exifResult;
+  return output;
+};
+
+export const getImageMetaData: getImageMetaDataType = async (path: string) => {
+  const result = await Compressor.getImageMetaData(path);
+  return unifyMetaData(result);
+};
+
+export const createVideoThumbnail: createVideoThumbnailType = (
+  fileUrl,
+  options = {}
+) => {
+  return Compressor.createVideoThumbnail(fileUrl, options);
+};
+
+export const clearCache: clearCacheType = (cacheDir?: string) => {
+  return Compressor.clearCache(cacheDir);
 };
 
 const isValidUrl = (url: string) =>
@@ -76,8 +142,8 @@ const isFileNameError = (filename: string) => {
 };
 
 const getFilename = (path: string | null) => {
-  const fullFilename = getFullFilename(path);
-  if (!isFileNameError(fullFilename)) {
+  const fullFilename: string | undefined = getFullFilename(path);
+  if (fullFilename && !isFileNameError(fullFilename)) {
     const array = fullFilename.split('.');
     return array.length > 1 ? array.slice(0, -1).join('') : array.join('');
   }
@@ -85,7 +151,9 @@ const getFilename = (path: string | null) => {
 };
 
 const isRemoteMedia = (path: string | null) => {
-  return typeof path === 'string' ? path.split(':/')[0].includes('http') : null;
+  return typeof path === 'string'
+    ? path?.split(':/')?.[0]?.includes('http')
+    : null;
 };
 
 export const getDetails = (
@@ -122,47 +190,8 @@ export const getDetails = (
   });
 };
 
-export const checkUrlAndOptions = async (
-  url: string,
-  options: audioCompresssionType
-): Promise<defaultResultType> => {
-  if (!url) {
-    throw new Error(
-      'Compression url is empty, please provide a url for compression.'
-    );
-  }
-  const defaultResult: defaultResultType = {
-    outputFilePath: '',
-    isCorrect: true,
-    message: '',
-  };
-
-  // Check if output file is correct
-  let outputFilePath: string | undefined | null;
-  try {
-    // use default output file
-    // or use new file from cache folder
-    if (options.outputFilePath) {
-      outputFilePath = options.outputFilePath;
-      defaultResult.outputFilePath = outputFilePath;
-    } else {
-      outputFilePath = await generateFilePath('mp3');
-      defaultResult.outputFilePath = outputFilePath;
-    }
-    if (outputFilePath === undefined || outputFilePath === null) {
-      defaultResult.isCorrect = false;
-      defaultResult.message = options.outputFilePath
-        ? INCORRECT_OUTPUT_PATH
-        : ERROR_OCCUR_WHILE_GENERATING_OUTPUT_FILE;
-    }
-  } catch (e) {
-    defaultResult.isCorrect = false;
-    defaultResult.message = options.outputFilePath
-      ? INCORRECT_OUTPUT_PATH
-      : ERROR_OCCUR_WHILE_GENERATING_OUTPUT_FILE;
-  } finally {
-    return defaultResult;
-  }
+export const getFileSize = async (filePath: string): Promise<string> => {
+  return Compressor.getFileSize(filePath);
 };
 
 export const uuidv4 = () => {
@@ -180,3 +209,5 @@ export const uuidv4 = () => {
     return v.toString(16);
   });
 };
+export * from './Downloader';
+export * from './Uploader';

@@ -1,5 +1,5 @@
-#import <React/RCTBridgeModule.h>
+#import <React/RCTEventEmitter.h>
 
-@interface Compressor : NSObject <RCTBridgeModule>
-
-@end
+#ifdef RCT_NEW_ARCH_ENABLED
+#import "RNCompressorSpec.h"
+#endif
